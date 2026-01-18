@@ -1,56 +1,49 @@
-import psycopg2
-from psycopg2 import sql
+import os
+from supabase import create_client, Client
 
-class LogisticsManager:
-    def __init__(self, db_config):
-        """Inicjalizacja połączenia z bazą danych."""
-        self.conn = psycopg2.connect(**db_config)
-        self.cursor = self.conn.cursor()
+# --- KONFIGURACJA ---
+# Dane znajdziesz w panelu Supabase: Project Settings -> API
+SUPABASE_URL = "TWOJ_URL_PROJEKTU"
+SUPABASE_KEY = "TWOJ_ANON_KEY"
 
-    def dodaj_produkt(self, nazwa, liczba, cena, kategoria_id):
-        """Dodaje nowy produkt do bazy danych."""
-        try:
-            query = """
-                INSERT INTO produkty (nazwa, liczba, cena, kategoria_id)
-                VALUES (%s, %s, %s, %s) RETURNING id;
-            """
-            self.cursor.execute(query, (nazwa, liczba, cena, kategoria_id))
-            nowe_id = self.cursor.fetchone()[0]
-            self.conn.commit()
-            print(f"[SUCCESS] Produkt '{nazwa}' dodany z ID: {nowe_id}")
-            return nowe_id
-        except Exception as e:
-            self.conn.rollback()
-            print(f"[ERROR] Nie udało się dodać produktu: {e}")
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-    def usun_produkt(self, produkt_id):
-        """Usuwa produkt na podstawie jego ID."""
-        try:
-            query = "DELETE FROM produkty WHERE id = %s;"
-            self.cursor.execute(query, (produkt_id,))
-            if self.cursor.rowcount == 0:
-                print(f"[WARNING] Nie znaleziono produktu o ID: {produkt_id}")
-            else:
-                self.conn.commit()
-                print(f"[SUCCESS] Produkt o ID: {produkt_id} został usunięty.")
-        except Exception as e:
-            self.conn.rollback()
-            print(f"[ERROR] Błąd podczas usuwania: {e}")
+def dodaj_produkt(nazwa: str, liczba: int, cena: float, kategoria_id: int):
+    """
+    Dodaje nowy produkt do bazy danych.
+    Wymaga poprawnego kategoria_id istniejącego w tabeli 'kategorie'.
+    """
+    data = {
+        "nazwa": nazwa,
+        "liczba": liczba,
+        "cena": cena,
+        "kategoria_id": kategoria_id
+    }
+    try:
+        response = supabase.table("produkty").insert(data).execute()
+        print(f"✅ Produkt '{nazwa}' został dodany.")
+        return response
+    except Exception as e:
+        print(f"❌ Błąd podczas dodawania: {e}")
 
-    def zamknij_polaczenie(self):
-        self.cursor.close()
-        self.conn.close()
+def usun_produkt(produkt_id: int):
+    """
+    Usuwa produkt na podstawie jego unikalnego ID.
+    """
+    try:
+        response = supabase.table("produkty").delete().eq("id", produkt_id).execute()
+        if response.data:
+            print(f"✅ Produkt o ID {produkt_id} został usunięty.")
+        else:
+            print(f"⚠️ Nie znaleziono produktu o ID {produkt_id}.")
+        return response
+    except Exception as e:
+        print(f"❌ Błąd podczas usuwania: {e}")
 
 # --- PRZYKŁAD UŻYCIA ---
-config = {
-    'dbname': 'twoja_nazwa_bazy',
-    'user': 'postgres',
-    'password': 'twoje_haslo',
-    'host': 'db.xyz.supabase.co',
-    'port': '5432'
-}
-
-# Logika biznesowa
-# manager = LogisticsManager(config)
-# manager.dodaj_produkt("Paleta Euro", 150, 89.99, 1) # Zakładając, że kategoria ID=1 istnieje
-# manager.usun_produkt(5)
+if __name__ == "__main__":
+    # 1. Dodawanie produktu (upewnij się, że kategoria o ID 1 istnieje!)
+    dodaj_produkt("Wózek Widłowy model A", 5, 15000.50, 1)
+    
+    # 2. Usuwanie produktu (zmień ID na właściwe)
+    # usun_produkt(10)
