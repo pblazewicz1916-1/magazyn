@@ -1,20 +1,15 @@
-Skoro klucze masz już bezpiecznie ukryte w Secrets, to kod staje się znacznie czystszy i bezpieczniejszy. Usunąłem pola wyboru z paska bocznego i podpiąłem bezpośrednie pobieranie danych z st.secrets.
-
-Oto poprawiona, w pełni zautomatyzowana wersja Twojego terminala przetrwania:
-
-Python
 import streamlit as st
 import random
 from supabase import create_client, Client
 
 # --- INICJALIZACJA SUPABASE (Z SECRETS) ---
-# Streamlit automatycznie szuka ich w .streamlit/secrets.toml lub w panelu Cloud
 try:
+    # Streamlit pobiera to z Twojej konfiguracji Secrets
     SUPABASE_URL = st.secrets["SUPABASE_URL"]
     SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 except Exception as e:
-    st.error("💀 Nie znaleziono kluczy w Secrets! Mutanci musieli je przeciąć.")
+    st.error("💀 Nie znaleziono kluczy w Secrets! Sprawdź ustawienia w Streamlit Cloud.")
     st.stop()
 
 class MagazynApokalipsy:
@@ -27,15 +22,18 @@ class MagazynApokalipsy:
         ]
 
     def pobierz_zapasy(self):
-        # Pobieramy ID, nazwę, liczbę i cenę
-        response = supabase.table("produkty").select("id, nazwa, liczba, cena").execute()
-        return response.data
+        try:
+            response = supabase.table("produkty").select("id, nazwa, liczba, cena").execute()
+            return response.data
+        except Exception as e:
+            st.error(f"Błąd bazy: {e}")
+            return []
 
     def dodaj_loot(self, nazwa, liczba, cena):
         data = {"nazwa": nazwa, "liczba": liczba, "cena": cena, "kategoria_id": 1}
         supabase.table("produkty").insert(data).execute()
 
-# --- INTERFEJS ---
+# --- INTERFEJS STREAMLIT ---
 st.set_page_config(page_title="Vault-Tec Terminal", page_icon="☢️")
 st.title("☢️ Terminal Zarządzania Schronem")
 
@@ -48,7 +46,6 @@ with st.sidebar:
     if zapasy:
         suma_kapsli = sum(item['cena'] * item['liczba'] for item in zapasy)
         st.metric("Całkowita wartość (kapsle)", f"{suma_kapsli:,.2f}")
-        st.write(f"Przedmiotów w bazie: {len(zapasy)}")
     else:
         st.write("Brak zasobów.")
 
@@ -60,10 +57,9 @@ with tab1:
     if zapasy:
         st.dataframe(zapasy, use_container_width=True)
     else:
-        st.info("🏜️ Magazyn jest pusty. Wyślij kogoś na zewnątrz!")
+        st.info("🏜️ Magazyn jest pusty.")
 
 with tab2:
-    # Sekcja dodawania
     st.write("### ➕ Dodaj nowy loot")
     c1, c2, c3 = st.columns(3)
     nazwa = c1.text_input("Nazwa przedmiotu")
@@ -76,15 +72,14 @@ with tab2:
             st.success(f"Dodano: {nazwa}")
             st.rerun()
         else:
-            st.warning("Przedmiot musi mieć nazwę, szefie!")
+            st.warning("Przedmiot musi mieć nazwę!")
 
     st.divider()
 
-    # Sekcja akcji losowych
     st.write("### 🎲 Akcje globalne")
-    if st.button("SZABRUJ I HANDLUJ (Zmień ceny rynkowe)"):
+    if st.button("SZABRUJ I HANDLUJ"):
         zdarzenie, mnoznik, opis = random.choice(logic.zdarzenia)
-        st.toast(f"{zdarzenie}: {opis}") # Małe powiadomienie w rogu
+        st.toast(f"{zdarzenie}: {opis}")
         
         for p in zapasy:
             nowa_cena = round(p['cena'] * mnoznik, 2)
@@ -93,13 +88,8 @@ with tab2:
 
     st.divider()
 
-    # Usuwanie
     st.write("### 🔥 Utylizacja")
     id_del = st.number_input("Podaj ID do zniszczenia", min_value=0, step=1)
     if st.button("Spal przedmiot", type="primary"):
         supabase.table("produkty").delete().eq("id", id_del).execute()
-        st.error(f"Przedmiot #{id_del} przestał istnieć.")
         st.rerun()
-        
-else:
-    st.write("🏜️ Pusto tu... wyślij kogoś na zwiady.")
