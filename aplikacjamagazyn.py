@@ -39,7 +39,7 @@ logic = MagazynApokalipsy()
 zapasy = logic.pobierz_zapasy()
 
 # --- PASEK BOCZNY ---
-if zapasy: # Statystyki pokazują się TYLKO gdy coś jest w magazynie
+if zapasy:
     with st.sidebar:
         st.header("📊 Statystyki")
         suma_kapsli = sum(item['cena'] * item['liczba'] for item in zapasy)
@@ -51,9 +51,7 @@ tab1, tab2 = st.tabs(["📦 Magazyn", "🛠️ Zarządzanie"])
 
 with tab1:
     if not zapasy:
-        # Efektowny komunikat zamiast pustej tabeli
         st.warning("🏜️ Twoje półki pokrywa kurz... Magazyn jest pusty!")
-        st.image("https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJndm80Z3R6Z3R6Z3R6Z3R6Z3R6Z3R6Z3R6Z3R6Z3R6JmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/26n6WywJyh39n1pBu/giphy.gif")
         st.info("Przejdź do zakładki 'Zarządzanie', aby dodać swój pierwszy loot.")
     else:
         st.subheader("📋 Aktualne zapasy w bunkrze")
@@ -72,9 +70,9 @@ with tab2:
             st.toast(f"📦 {nazwa} bezpiecznie schowany!")
             st.rerun()
         else:
-            st.error("Jak chcesz nazwać to 'nic'? Podaj nazwę!")
+            st.error("Przedmiot musi mieć nazwę!")
 
-    if zapasy: # Narzędzia handlu i utylizacji tylko, gdy jest co handlować/psuć
+    if zapasy:
         st.divider()
         st.write("### 🎲 Akcje globalne")
         if st.button("SZABRUJ I HANDLUJ", use_container_width=True):
@@ -83,9 +81,3 @@ with tab2:
             for p in zapasy:
                 nowa_cena = round(p['cena'] * mnoznik, 2)
                 supabase.table("produkty").update({"cena": nowa_cena}).eq("id", p['id']).execute()
-            st.rerun()
-
-        st.divider()
-        st.write("### 🔥 Utylizacja")
-        col_id, col_btn = st.columns([2, 1])
-        id_del = col_id.number_input("ID do zniszczenia", min_value=
