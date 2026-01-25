@@ -1,54 +1,80 @@
-import os
+import streamlit as st
 import random
 from supabase import create_client, Client
 
-# --- KONFIGURACJA (Trzymaj to pod kluczem, albo mutanci przejmą bazę!) ---
-SUPABASE_URL = "TWOJ_URL"
-SUPABASE_KEY = "TWOJ_KLUCZ"
+# --- KONFIGURACJA STREAMLIT ---
+st.set_page_config(page_title="Vault-Tec Manager", page_icon="☢️")
+
+# --- POŁĄCZENIE Z BAZĄ ---
+# Najlepiej dodać je w panelu Streamlit Cloud w "Secrets"
+SUPABASE_URL = st.sidebar.text_input("Supabase URL", type="default")
+SUPABASE_KEY = st.sidebar.text_input("Supabase Anon Key", type="password")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    st.warning("⚠️ Wpisz dane do Supabase w panelu bocznym, aby odblokować terminal!")
+    st.stop()
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+# --- LOGIKA SYSTEMU ---
 class MagazynApokalipsy:
     def __init__(self):
-        self.okrzyki_sukcesu = [
-            "Znaleziono w ruinach!", "Odbite gangowi motocyklowemu.",
-            "Czysty zysk, zero promieniowania.", "Wrzucam do skrzyni, szefie!"
-        ]
-        self.odpowiedzi_na_blad = [
-            "Coś wybuchło. I to nie był dynamit...",
-            "Baza danych została zaatakowana przez zmutowane chomiki.",
-            "Błąd 404: Twoja godność nie została znaleziona.",
-            "Supabase mówi: 'Nie dzisiaj, koleżko'."
+        self.zdarzenia = [
+            ("☢️ Burza piaskowa", 1.5, "Ceny rosną!"),
+            ("🐀 Inwazja szczurów", 0.5, "Wyprzedaż pogryzionych fantów!"),
+            ("🛸 Wizyta obcych", 3.0, "Ktoś płaci w galaktycznych kredytach!")
         ]
 
-    def dodaj_loot(self, nazwa: str, liczba: int, cena: float, kat_id: int):
-        """Dodaje fanty do Twojego schronu."""
-        data = {"nazwa": nazwa, "liczba": liczba, "cena": cena, "kategoria_id": kat_id}
-        try:
-            supabase.table("produkty").insert(data).execute()
-            print(f"📦 [{nazwa.upper()}] - {random.choice(self.okrzyki_sukcesu)}")
-        except Exception as e:
-            print(f"💀 KATASTROFA: {random.choice(self.odpowiedzi_na_blad)} ({e})")
+    def pobierz_zapasy(self):
+        return supabase.table("produkty").select("*").execute().data
 
-    def zutylizuj(self, produkt_id: int):
-        """Usuwa przedmiot (prawdopodobnie został zjedzony przez mutanty)."""
-        try:
-            res = supabase.table("produkty").delete().eq("id", produkt_id).execute()
-            if res.data:
-                print(f"🔥 Przedmiot #{produkt_id} został spalony. Popiół rozrzucony na wietrze.")
-            else:
-                print(f"🕵️ Próbujesz usunąć ducha? ID {produkt_id} nie istnieje w tej rzeczywistości.")
-        except Exception as e:
-            print(f"☣️ Wyciek radioaktywny przy usuwaniu: {e}")
+    def dodaj_loot(self, nazwa, liczba, cena):
+        data = {"nazwa": nazwa, "liczba": liczba, "cena": cena, "kategoria_id": 1}
+        supabase.table("produkty").insert(data).execute()
 
-# --- URUCHAMIANIE PROTOKOŁU ---
-if __name__ == "__main__":
-    shelter = MagazynApokalipsy()
+# --- INTERFEJS STREAMLIT ---
+st.title("☢️ Terminal Zarządzania Schronem")
+st.subheader("Witaj w Vault-Tec. Dzisiaj jest piękny dzień na przetrwanie.")
+
+logic = MagazynApokalipsy()
+
+# --- PANEL DODAWANIA ---
+with st.expander("➕ Znaleziono nowy loot?"):
+    col1, col2, col3 = st.columns(3)
+    nazwa = col1.text_input("Co to?")
+    ile = col2.number_input("Ile sztuk?", min_value=1, value=1)
+    cena = col3.number_input("Cena (kapsle)", min_value=0.1, value=10.0)
     
-    print("--- ☢️ LOGOWANIE DO TERMINALA VAULT-TEC ☢️ ---")
+    if st.button("Dodaj do skrzyni"):
+        logic.dodaj_loot(nazwa, ile, cena)
+        st.success(f"📦 Wrzucono {nazwa} do schowka!")
+        st.balloons() # Mały efekt świętowania
+
+# --- PANEL HANDLU ---
+st.divider()
+if st.button("🎲 SZABRUJ I HANDLUJ (Zmień ceny)"):
+    zdarzenie, mnoznik, opis = random.choice(logic.zdarzenia)
+    st.info(f"{zdarzenie}: {opis}")
     
-    # Próba dodania czegoś epickiego
-    shelter.dodaj_loot("Puszka przeterminowanej fasoli", 100, 2.50, 1)
+    produkty = logic.pobierz_zapasy()
+    for p in produkty:
+        nowa_cena = round(p['cena'] * mnoznik, 2)
+        supabase.table("produkty").update({"cena": nowa_cena}).eq("id", p['id']).execute()
+    st.rerun() # Odśwież stronę, by zobaczyć nowe ceny
+
+# --- WIDOK MAGAZYNU ---
+st.header("📋 Twoje Zasoby")
+zapasy = logic.pobierz_zapasy()
+
+if zapasy:
+    # Wyświetlamy to w ładnej tabeli Streamlit
+    st.table(zapasy)
     
-    # Próba usunięcia czegoś, czego pewnie nie ma
-    shelter.zutylizuj(999)
+    # Usuwanie
+    id_do_usuniecia = st.number_input("Wpisz ID do zutylizowania", min_value=1)
+    if st.button("🔥 Spal przedmiot"):
+        supabase.table("produkty").delete().eq("id", id_do_usuniecia).execute()
+        st.warning(f"Zutylizowano przedmiot o ID {id_do_usuniecia}")
+        st.rerun()
+else:
+    st.write("🏜️ Pusto tu... wyślij kogoś na zwiady.")
