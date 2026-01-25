@@ -38,9 +38,28 @@ class MagazynApokalipsy:
             response = supabase.table("produkty").select("id, nazwa, liczba, cena").execute()
             data = response.data if response.data else []
             
-            # Jeśli magazyn jest pusty, automatycznie go zatowaruj!
             if not data:
                 st.info("📦 Magazyn był pusty. Generuję 10 podstawowych produktów...")
                 supabase.table("produkty").insert(self.produkty_startowe).execute()
-                # Pobierz ponownie, żeby mieć ID z bazy
-                response = supabase.table("produkty").select("id, nazwa, liczba, cena").execute
+                response = supabase.table("produkty").select("id, nazwa, liczba, cena").execute()
+                return response.data
+            return data
+        except Exception as e:
+            st.error(f"❌ Krytyczna awaria terminala: {e}")
+            return []
+
+    def dodaj_loot(self, nazwa, liczba, cena):
+        try:
+            data = {"nazwa": nazwa, "liczba": liczba, "cena": cena, "kategoria_id": 1}
+            supabase.table("produkty").insert(data).execute()
+        except Exception as e:
+            st.error(f"❌ Nie udało się upchnąć fantu w szafce: {e}")
+
+# --- INTERFEJS STREAMLIT ---
+st.set_page_config(page_title="Vault-Tec Terminal", page_icon="☢️")
+st.title("☢️ Terminal Zarządzania Schronem")
+
+logic = MagazynApokalipsy()
+zapasy = logic.pobierz_zapasy()
+
+# --- PASEK BOCZNY
