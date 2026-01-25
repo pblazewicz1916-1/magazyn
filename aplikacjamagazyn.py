@@ -14,70 +14,33 @@ except Exception as e:
 class MagazynApokalipsy:
     def __init__(self):
         self.zdarzenia = [
-            ("☢️ Burza piaskowa", 1.5, "Ceny rosną! Nikt nie chce wychodzić z bunkra."),
-            ("🐀 Inwazja szczurów", 0.5, "Towar nadgryziony, wyprzedaż 50%!"),
-            ("🛸 Wizyta obcych", 3.0, "Intergalaktyczna inflacja! Wszystko x3!"),
-            ("💧 Znalezisko", 0.8, "Ludzie są szczęśliwsi, ceny lekko w dół.")
+            ("☢️ Burza piaskowa", 1.5, "Ceny rosną!"),
+            ("🐀 Inwazja szczurów", 0.5, "Wyprzedaż!"),
+            ("🛸 Wizyta obcych", 3.0, "Inflacja galaktyczna!"),
+            ("💧 Znalezisko", 0.8, "Ceny w dół.")
+        ]
+        # Lista startowa - 10 niezbędnych produktów
+        self.produkty_startowe = [
+            {"nazwa": "Nuka-Cola", "liczba": 24, "cena": 15.0, "kategoria_id": 1},
+            {"nazwa": "AntyRad", "liczba": 5, "cena": 120.0, "kategoria_id": 1},
+            {"nazwa": "Puszka fasoli", "liczba": 50, "cena": 5.5, "kategoria_id": 1},
+            {"nazwa": "Amunicja 10mm", "liczba": 100, "cena": 2.0, "kategoria_id": 1},
+            {"nazwa": "Zardzewiały nóż", "liczba": 3, "cena": 45.0, "kategoria_id": 1},
+            {"nazwa": "Licznik Geigera", "liczba": 1, "cena": 350.0, "kategoria_id": 1},
+            {"nazwa": "Czysta woda", "liczba": 12, "cena": 25.0, "kategoria_id": 1},
+            {"nazwa": "Stymulant", "liczba": 8, "cena": 80.0, "kategoria_id": 1},
+            {"nazwa": "Maska przeciwgazowa", "liczba": 2, "cena": 150.0, "kategoria_id": 1},
+            {"nazwa": "Bateria termojądrowa", "liczba": 1, "cena": 999.0, "kategoria_id": 1}
         ]
 
     def pobierz_zapasy(self):
         try:
             response = supabase.table("produkty").select("id, nazwa, liczba, cena").execute()
-            return response.data if response.data else []
-        except Exception:
-            return []
-
-    def dodaj_loot(self, nazwa, liczba, cena):
-        data = {"nazwa": nazwa, "liczba": liczba, "cena": cena, "kategoria_id": 1}
-        supabase.table("produkty").insert(data).execute()
-
-# --- INTERFEJS STREAMLIT ---
-st.set_page_config(page_title="Vault-Tec Terminal", page_icon="☢️")
-st.title("☢️ Terminal Zarządzania Schronem")
-
-logic = MagazynApokalipsy()
-zapasy = logic.pobierz_zapasy()
-
-# --- PASEK BOCZNY ---
-if zapasy:
-    with st.sidebar:
-        st.header("📊 Statystyki")
-        suma_kapsli = sum(item['cena'] * item['liczba'] for item in zapasy)
-        st.metric("Całkowita wartość", f"{suma_kapsli:,.2f} 🍾")
-        st.write(f"Liczba unikalnych fantów: {len(zapasy)}")
-
-# --- ZAKŁADKI ---
-tab1, tab2 = st.tabs(["📦 Magazyn", "🛠️ Zarządzanie"])
-
-with tab1:
-    if not zapasy:
-        st.warning("🏜️ Twoje półki pokrywa kurz... Magazyn jest pusty!")
-        st.info("Przejdź do zakładki 'Zarządzanie', aby dodać swój pierwszy loot.")
-    else:
-        st.subheader("📋 Aktualne zapasy w bunkrze")
-        st.dataframe(zapasy, use_container_width=True, hide_index=True)
-
-with tab2:
-    st.write("### ➕ Dodaj nowy loot")
-    c1, c2, c3 = st.columns(3)
-    nazwa = c1.text_input("Nazwa przedmiotu", placeholder="np. Nuka-Cola")
-    ile = c2.number_input("Ilość", min_value=1, step=1)
-    cena = c3.number_input("Cena (w kapslach)", min_value=0.01, step=0.5)
-    
-    if st.button("Składuj w bunkrze", use_container_width=True):
-        if nazwa:
-            logic.dodaj_loot(nazwa, ile, cena)
-            st.toast(f"📦 {nazwa} bezpiecznie schowany!")
-            st.rerun()
-        else:
-            st.error("Przedmiot musi mieć nazwę!")
-
-    if zapasy:
-        st.divider()
-        st.write("### 🎲 Akcje globalne")
-        if st.button("SZABRUJ I HANDLUJ", use_container_width=True):
-            zdarzenie, mnoznik, opis = random.choice(logic.zdarzenia)
-            st.toast(f"{zdarzenie}: {opis}")
-            for p in zapasy:
-                nowa_cena = round(p['cena'] * mnoznik, 2)
-                supabase.table("produkty").update({"cena": nowa_cena}).eq("id", p['id']).execute()
+            data = response.data if response.data else []
+            
+            # Jeśli magazyn jest pusty, automatycznie go zatowaruj!
+            if not data:
+                st.info("📦 Magazyn był pusty. Generuję 10 podstawowych produktów...")
+                supabase.table("produkty").insert(self.produkty_startowe).execute()
+                # Pobierz ponownie, żeby mieć ID z bazy
+                response = supabase.table("produkty").select("id, nazwa, liczba, cena").execute
